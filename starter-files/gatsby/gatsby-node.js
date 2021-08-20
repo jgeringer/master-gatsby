@@ -1,5 +1,6 @@
 import path from 'path';
 import fetch from 'isomorphic-fetch';
+import { createSign } from 'crypto';
 
 async function turnPizzasIntoPages({ graphql, actions }) {
   // 1. Get a template for this page
@@ -87,6 +88,45 @@ async function fetchBeersAndTurnIntoNodes({
   }
 }
 
+async function turnSlicemastersIntoPages({ graphql, actions }) {
+  // Query all slicemasters
+  const { data } = await graphql(`
+    query {
+      slicemasters: allSanityPerson {
+        totalCount
+        nodes {
+          name
+          id
+          slug {
+            current
+          }
+        }
+      }
+    }
+  `);
+  // Turn each slicemaster into a page
+  // Figure out how many pages there are based on how many slicemasters there are
+  const pageSize = parseInt(process.env.GATSBY_PAGE_SIZE);
+  const pageCount = Math.ceil(data.slicemasters.totalCount) / pageSize;
+  console.log(
+    `there are: ${data.slicemasters.totalCount} and we have ${pageCount} pages with ${pageSize} per page`
+  );
+  // Loop from 1 to n and create pages for them
+  Array.from({ length: pageCount }).forEach((_, i) => {
+    console.log(`creating page ${i}`);
+    actions.createPage({
+      path: `/slicemasters/${i + i}`,
+      component: path.resolve('./src/pages/slicemasters.jsx'),
+      // This data is passed to the template when we create it
+      context: {
+        skip: i * pageSize,
+        currentPage: i + 1,
+        pageSize,
+      },
+    });
+  });
+}
+
 export async function sourceNodes(params) {
   // fetch a list of external beers and source them into our gatsby API!
   await Promise.all([fetchBeersAndTurnIntoNodes(params)]);
@@ -98,5 +138,6 @@ export async function createPages(params) {
   await Promise.all([
     turnPizzasIntoPages(params),
     turnToppingsIntoPages(params),
+    turnSlicemastersIntoPages(params),
   ]);
 }
